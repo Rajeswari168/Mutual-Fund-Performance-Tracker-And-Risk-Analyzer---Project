@@ -125,9 +125,124 @@ const offline = {
       return { data: { riskScore: score, recommendation: score > 7 ? 'Aggressive Growth Portfolio' : score > 4 ? 'Balanced Portfolio' : 'Conservative Portfolio' } };
     },
   },
+  fraudRisk: {
+    getAll: () => {
+      const funds = ls.get('sf_funds') || DEMO_FUNDS;
+      const analyses = funds.map(f => {
+        let hash = 0;
+        for (let i = 0; i < f.fundName.length; i++) hash = (hash * 31 + f.fundName.charCodeAt(i)) % 10000;
+        const isHigh = f.riskLevel === 'High Risk' || f.returns1y > 22.0;
+        const isLow = f.riskLevel === 'Low Risk' || f.category === 'Debt' || f.category === 'Hybrid';
+        const navVol = isHigh ? (18.0 + (hash % 120)/10.0) : (isLow ? (2.0 + (hash % 40)/10.0) : (10.0 + (hash % 60)/10.0));
+        const expRatio = isHigh ? (1.2 + (hash % 130)/100.0) : (0.4 + (hash % 70)/100.0);
+        const retCons = isHigh ? (62.0 + (hash % 180)/10.0) : (82.0 + (hash % 140)/10.0);
+        const fundAge = 3 + (hash % 13);
+        const aumGr = -8.0 + (hash % 450)/10.0;
+        const portConc = isHigh ? (45.0 + (hash % 300)/10.0) : (22.0 + (hash % 200)/10.0);
+        const secExp = isHigh ? (38.0 + (hash % 280)/10.0) : (18.0 + (hash % 200)/10.0);
+        const drawd = isHigh ? (-18.0 - (hash % 160)/10.0) : (-3.0 - (hash % 60)/10.0);
+        const stDev = navVol * 0.95;
+        const sharpe = isHigh ? (1.4 + (hash % 110)/100.0) : (0.8 + (hash % 80)/100.0);
+
+        let riskScore = isHigh ? (72 + (hash % 23)) : (isLow ? (18 + (hash % 21)) : (45 + (hash % 23)));
+        if (f.returns1y > 30.0) riskScore = Math.max(riskScore, 85);
+        const rLevel = riskScore >= 70 ? 'High' : (riskScore >= 40 ? 'Medium' : 'Low');
+
+        let fraudProb = 12 + (hash % 18);
+        const reasonsList = [];
+        if (f.returns1y > 30.0) {
+          fraudProb += 35 + (hash % 20);
+          reasonsList.push('Extremely high recent returns (>30%)');
+        }
+        if (expRatio > 2.0) {
+          fraudProb += 22;
+          reasonsList.push('Expense ratio unusually high (>2.0%)');
+        }
+        if (portConc > 65.0) {
+          fraudProb += 18;
+          reasonsList.push('Concentrated portfolio exposure');
+        }
+        if (navVol > 24.0) {
+          fraudProb += 15;
+          reasonsList.push('Sudden NAV fluctuations');
+        }
+        fraudProb = Math.min(96, fraudProb);
+
+        let status = 'Safe';
+        if (fraudProb >= 65 || riskScore >= 82) {
+          status = 'Critical';
+          if (reasonsList.length === 0) reasonsList.push('High NAV fluctuation & sector risk');
+        } else if (fraudProb >= 38 || riskScore >= 68) {
+          status = 'Warning';
+          if (reasonsList.length === 0) reasonsList.push('Moderate return volatility');
+        } else {
+          if (reasonsList.length === 0) reasonsList.push('Consistent return pattern');
+        }
+
+        const explanation = `This mutual fund is classified as ${rLevel} Risk (Score: ${riskScore}/100) due to NAV volatility of ${navVol.toFixed(1)}%, expense ratio of ${expRatio.toFixed(2)}%, and historical drawdown reaching ${drawd.toFixed(1)}%. ${status !== 'Safe' ? 'Rule engine flagged potential anomalies: ' + reasonsList.join(', ') + '. Investors should exercise extra diligence.' : 'The fund displays stable institutional ownership and reliable return consistency over multi-year cycles.'}`;
+
+        return {
+          fundId: f.fundId,
+          fundName: f.fundName,
+          company: f.company,
+          category: f.category,
+          nav: f.nav,
+          returns1y: f.returns1y,
+          returns3y: f.returns3y,
+          returns5y: f.returns5y,
+          riskScore,
+          riskLevel: rLevel,
+          fraudProbability: fraudProb,
+          detectionStatus: status,
+          reasons: reasonsList,
+          aiExplanation: explanation,
+          navVolatility: parseFloat(navVol.toFixed(2)),
+          expenseRatio: parseFloat(expRatio.toFixed(2)),
+          returnConsistency: parseFloat(retCons.toFixed(1)),
+          fundAgeYears: fundAge,
+          aumGrowth: parseFloat(aumGr.toFixed(1)),
+          portfolioConcentration: parseFloat(portConc.toFixed(1)),
+          sectorExposure: parseFloat(secExp.toFixed(1)),
+          drawdown: parseFloat(drawd.toFixed(1)),
+          stdDev: parseFloat(stDev.toFixed(2)),
+          sharpeRatio: parseFloat(sharpe.toFixed(2)),
+        };
+      });
+      return { data: analyses };
+    },
+    getDashboardSummary: () => {
+      const { data: all } = offline.fraudRisk.getAll();
+      const totalFunds = all.length;
+      let safeFunds = 0, mediumRisk = 0, highRisk = 0, fraudAlerts = 0, totalRiskScore = 0;
+      all.forEach(a => {
+        totalRiskScore += a.riskScore;
+        if (a.riskLevel === 'Low') safeFunds++;
+        else if (a.riskLevel === 'Medium') mediumRisk++;
+        else if (a.riskLevel === 'High') highRisk++;
+        if (a.detectionStatus === 'Warning' || a.detectionStatus === 'Critical') fraudAlerts++;
+      });
+      const topRisky = [...all].sort((o1, o2) => o2.riskScore - o1.riskScore).slice(0, 6);
+      const overallRiskScore = totalFunds > 0 ? Math.round(totalRiskScore / totalFunds) : 50;
+      const overallRiskLevel = overallRiskScore >= 70 ? 'High' : (overallRiskScore >= 40 ? 'Medium' : 'Low');
+      const detectionStatus = fraudAlerts >= 5 ? 'Warning' : (fraudAlerts > 15 ? 'Critical' : 'Safe');
+      return {
+        data: {
+          overallRiskScore,
+          overallRiskLevel,
+          detectionStatus,
+          totalFunds,
+          safeFunds,
+          mediumRisk,
+          highRisk,
+          fraudAlerts,
+          topRiskyFunds: topRisky,
+        }
+      };
+    },
+  },
 };
 
-// â”€â”€â”€ API factory: uses real backend if VITE_API_BASE_URL is set â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── API factory: uses real backend if VITE_API_BASE_URL is set ──────────────
 const api = API_BASE_URL
   ? axios.create({ baseURL: API_BASE_URL, headers: { 'Content-Type': 'application/json' } })
   : null;
@@ -138,7 +253,7 @@ const tryApi = async (apiCall, fallback) => {
   catch { return fallback(); }
 };
 
-// â”€â”€â”€ Exported services â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Exported services ────────────────────────────────────────────────────────
 export const authService = {
   login: (creds) => tryApi(() => api.post('/auth/login', creds), () => offline.auth.login(creds)),
   register: (user) => tryApi(() => api.post('/auth/register', user), () => offline.auth.register(user)),
@@ -162,5 +277,11 @@ export const investmentService = {
   analyzeRisk: (params) => tryApi(() => api.post('/investments/risk-analyze', params), () => offline.investments.analyzeRisk(params)),
 };
 
+export const fraudRiskService = {
+  getDashboardSummary: () => tryApi(() => api.get('/fraud-risk/dashboard'), () => offline.fraudRisk.getDashboardSummary()),
+  getAllAnalyses: () => tryApi(() => api.get('/fraud-risk/analyses'), () => offline.fraudRisk.getAll()),
+};
+
 export default api;
+
 

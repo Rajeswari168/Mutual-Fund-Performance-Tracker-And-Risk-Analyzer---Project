@@ -5,6 +5,7 @@ import {
   TrendingUp, 
   Target, 
   ShieldAlert, 
+  AlertTriangle,
   Briefcase, 
   LogOut, 
   User as UserIcon,
@@ -57,6 +58,7 @@ const Layout = ({ user, onLogout }) => {
           <SidebarLink to="/" icon={LayoutDashboard} label="Dashboard" active={location.pathname === '/'} />
           <SidebarLink to="/funds" icon={Search} label="Search Funds" active={location.pathname === '/funds'} />
           <SidebarLink to="/risk" icon={ShieldAlert} label="Risk Analyzer" active={location.pathname === '/risk'} />
+          <SidebarLink to="/fraud-risk" icon={AlertTriangle} label="Fraud & Risk Detection" active={location.pathname === '/fraud-risk'} />
           <SidebarLink to="/portfolio" icon={Briefcase} label="My Portfolio" active={location.pathname === '/portfolio'} />
           <SidebarLink to="/goals" icon={Target} label="Goal Planner" active={location.pathname === '/goals'} />
         </nav>

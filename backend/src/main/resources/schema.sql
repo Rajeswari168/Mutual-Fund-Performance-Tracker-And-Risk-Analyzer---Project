@@ -38,6 +38,30 @@ CREATE TABLE IF NOT EXISTS goals (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS fraud_risk_analysis (
+    analysis_id INT AUTO_INCREMENT PRIMARY KEY,
+    fund_id INT,
+    risk_score INT,
+    risk_level VARCHAR(20),
+    fraud_probability INT,
+    detection_status VARCHAR(20),
+    reasons VARCHAR(500),
+    ai_explanation TEXT,
+    nav_volatility DOUBLE,
+    expense_ratio DOUBLE,
+    return_consistency DOUBLE,
+    fund_age_years INT,
+    aum_growth DOUBLE,
+    portfolio_concentration DOUBLE,
+    sector_exposure DOUBLE,
+    drawdown DOUBLE,
+    std_dev DOUBLE,
+    sharpe_ratio DOUBLE,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (fund_id) REFERENCES mutual_funds(fund_id) ON DELETE CASCADE
+);
+
+
 -- Insert 50+ mutual funds across different categories
 INSERT IGNORE INTO mutual_funds (fund_name, company, category, nav, risk_level, returns_1y, returns_3y, returns_5y) VALUES
 ('SBI Bluechip Fund', 'SBI Mutual Fund', 'Equity', 75.40, 'High Risk', 15.5, 12.2, 14.8),

@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import MutualFunds from './pages/MutualFunds';
 import GoalPlanner from './pages/GoalPlanner';
 import RiskAnalyzer from './pages/RiskAnalyzer';
+import FraudRiskDetection from './pages/FraudRiskDetection';
 import Portfolio from './pages/Portfolio';
 import Layout from './components/Layout';
 import { ThemeProvider } from './context/ThemeContext';
@@ -36,6 +37,7 @@ function App() {
             <Route path="funds" element={<MutualFunds user={user} />} />
             <Route path="goals" element={<GoalPlanner user={user} />} />
             <Route path="risk" element={<RiskAnalyzer user={user} />} />
+            <Route path="fraud-risk" element={<FraudRiskDetection user={user} />} />
             <Route path="portfolio" element={<Portfolio user={user} />} />
           </Route>
         </Routes>
